@@ -6,7 +6,11 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase URL or Anon Key. Please check your .env.local file.');
+    console.warn('Missing Supabase URL or Anon Key. Please check your .env.local file.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Fallback to avoid crash if env vars are missing
+export const supabase = createClient(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder'
+);
