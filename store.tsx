@@ -99,6 +99,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
+        // Try to get profile, but don't fail if it doesn't exist
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('*')
@@ -111,17 +112,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .eq('user_id', session.user.id)
           .single();
 
-        if (profile) {
-          setUser({
-            id: profile.id,
-            name: profile.name || session.user.email?.split('@')[0] || 'Anonymous',
-            email: session.user.email || '',
-            avatar: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-            points: points?.current_points || 500,
-            rank: 'Novice',
-            joinedAt: profile.created_at
-          });
-        }
+        // Always set user when session exists - use profile data if available, otherwise use session data
+        setUser({
+          id: session.user.id,
+          name: profile?.name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Anonymous',
+          email: session.user.email || '',
+          avatar: profile?.avatar_url || session.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
+          points: points?.current_points || 500,
+          rank: 'Novice',
+          joinedAt: profile?.created_at || new Date().toISOString()
+        });
       } else {
         setUser(null);
       }
