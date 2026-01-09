@@ -50,7 +50,7 @@ const MOCK_REWARDS: Reward[] = [
     id: 'r1',
     name: 'Starbucks $5 Gift Card',
     cost: 2000,
-    image: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800&q=80',
+    image: '/Starbuck5$.jpg',
     description: 'Redeem for a $5 Starbucks Gift Card. Valid at all locations.',
     remaining: 20
   },
@@ -58,7 +58,7 @@ const MOCK_REWARDS: Reward[] = [
     id: 'r2',
     name: 'Starbucks $10 Gift Card',
     cost: 3500,
-    image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
+    image: '/Starbuck10$.jpg',
     description: 'Redeem for a $10 Starbucks Gift Card.',
     remaining: 10
   }
