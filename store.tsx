@@ -1,13 +1,70 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Topic, User, Prediction, Reward, Transaction } from './types'; // Removed 'Category'
+import { Topic, User, Prediction, Reward, Transaction, Redemption, Category } from './types';
 import { supabase } from './services/supabase';
+
+// Mock data for initial display (will be replaced by Supabase data when connected)
+const MOCK_TOPICS: Topic[] = [
+  {
+    id: '1',
+    title: 'Will school close tomorrow due to snow?',
+    description: 'Heavy snow is forecasted tonight. Will WCHS close?',
+    category: Category.HOT,
+    participants: 120,
+    endTime: new Date(Date.now() + 86400000).toISOString(),
+    poolSize: 5000,
+    image: 'https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=80',
+    status: 'active',
+    odds: 1.8,
+    createdBy: 'admin'
+  },
+  {
+    id: '2',
+    title: 'Varsity Basketball vs. Wootton',
+    description: 'Predict the winner of Friday night game.',
+    category: Category.SPORTS,
+    participants: 85,
+    endTime: new Date(Date.now() + 259200000).toISOString(),
+    poolSize: 3200,
+    image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80',
+    status: 'active',
+    odds: 1.5,
+    createdBy: 'admin'
+  }
+];
+
+const MOCK_REWARDS: Reward[] = [
+  {
+    id: 'r1',
+    name: 'Starbucks $5 Gift Card',
+    cost: 2000,
+    image: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800&q=80',
+    description: 'Redeem for a $5 Starbucks Gift Card. Valid at all locations.',
+    remaining: 20
+  },
+  {
+    id: 'r2',
+    name: 'Starbucks $10 Gift Card',
+    cost: 3500,
+    image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
+    description: 'Redeem for a $10 Starbucks Gift Card.',
+    remaining: 10
+  }
+];
 
 interface AppContextType {
   user: User | null;
   topics: Topic[];
   predictions: Prediction[];
-  addTopic: (topic: Topic) => Promise<void>;
+  transactions: Transaction[];
+  rewards: Reward[];
+  redemptions: Redemption[];
+  notifications: Array<{ id: string, message: string, type: 'success' | 'error' }>;
+  addTopic: (topic: Topic) => void;
   makePrediction: (topicId: string, value: string, wager: number) => Promise<boolean>;
+  redeemReward: (rewardId: string) => void;
+  login: (email: string) => void;
+  logout: () => void;
+  dismissNotification: (id: string) => void;
   refreshData: () => Promise<void>;
   isLoading: boolean;
 }
@@ -16,14 +73,29 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topics, setTopics] = useState<Topic[]>(MOCK_TOPICS);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>(MOCK_REWARDS);
+  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+  const [notifications, setNotifications] = useState<Array<{ id: string, message: string, type: 'success' | 'error' }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
+
+  const dismissNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch User Session & Profile
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
@@ -42,11 +114,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (profile) {
           setUser({
             id: profile.id,
-            name: profile.name || 'Anonymous',
+            name: profile.name || session.user.email?.split('@')[0] || 'Anonymous',
             email: session.user.email || '',
             avatar: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-            points: points?.current_points || 0,
-            rank: 'Novice', // Calculate rank later
+            points: points?.current_points || 500,
+            rank: 'Novice',
             joinedAt: profile.created_at
           });
         }
@@ -54,52 +126,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUser(null);
       }
 
-      // 2. Fetch Topics
-      const { data: topicsData } = await supabase
+      // Try to fetch topics from Supabase, fallback to mock
+      const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (topicsData) {
-        // Map DB fields to FE types if necessary (snake_case to camelCase)
+      if (topicsData && topicsData.length > 0) {
         const formattedTopics: Topic[] = topicsData.map((t: any) => ({
           id: t.id,
           title: t.title,
           description: t.description,
-          category: t.category, // Ensure Enum matches or cast
-          participants: t.participant_count,
+          category: t.category as Category,
+          participants: t.participant_count || 0,
           endTime: t.end_time,
-          poolSize: t.pool_size,
+          poolSize: t.pool_size || 0,
           image: t.image_url || 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&q=80',
           status: t.status,
-          odds: 1.5, // Placeholder or calc
+          odds: 1.5,
           createdBy: t.created_by
         }));
         setTopics(formattedTopics);
-      }
-
-      // 3. Fetch User Predictions
-      if (session?.user) {
-        const { data: predData } = await supabase
-          .from('predictions')
-          .select('*')
-          .eq('user_id', session.user.id);
-
-        if (predData) {
-          const formattedPreds: Prediction[] = predData.map((p: any) => ({
-            id: p.id,
-            userId: p.user_id,
-            topicId: p.topic_id,
-            predictionValue: p.prediction_value,
-            wager: p.wager,
-            potentialWin: 0, // Calc
-            status: p.is_correct === true ? 'won' : p.is_correct === false ? 'lost' : 'pending',
-            createdAt: p.created_at
-          }));
-          setPredictions(formattedPreds);
-        }
-      } else {
-        setPredictions([]);
       }
 
     } catch (error) {
@@ -119,14 +166,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => subscription.unsubscribe();
   }, []);
 
-  const addTopic = async (topic: Topic) => {
-    console.log("Add topic not implemented yet");
+  const login = (email: string) => {
+    // This is for mock login - real login goes through supabase.auth
+    setUser({
+      id: 'mock-user',
+      name: email.split('@')[0],
+      email: email,
+      points: 500,
+      rank: 'Novice',
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+      joinedAt: new Date().toISOString()
+    });
+    addNotification(`Welcome, ${email.split('@')[0]}!`);
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setPredictions([]);
+    setTransactions([]);
+    addNotification('Logged out successfully');
+  };
+
+  const addTopic = (topic: Topic) => {
+    setTopics(prev => [topic, ...prev]);
+    addNotification('Topic created successfully!');
   };
 
   const makePrediction = async (topicId: string, value: string, wager: number): Promise<boolean> => {
     if (!user) return false;
+    if (user.points < wager) {
+      addNotification('Insufficient points!', 'error');
+      return false;
+    }
 
     try {
+      // Try Supabase first
       const { error } = await supabase
         .from('predictions')
         .insert({
@@ -138,16 +213,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
-      await refreshData();
+      // Update local state
+      setUser({ ...user, points: user.points - wager });
+
+      const newPrediction: Prediction = {
+        id: Math.random().toString(36),
+        userId: user.id,
+        topicId,
+        predictionValue: value,
+        wager,
+        potentialWin: Math.floor(wager * 1.5),
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      setPredictions(prev => [newPrediction, ...prev]);
+
+      const newTx: Transaction = {
+        id: Math.random().toString(36),
+        userId: user.id,
+        type: 'prediction',
+        amount: -wager,
+        description: `Prediction on topic`,
+        createdAt: new Date().toISOString()
+      };
+      setTransactions(prev => [newTx, ...prev]);
+
+      setTopics(prev => prev.map(t =>
+        t.id === topicId ? { ...t, participants: t.participants + 1, poolSize: t.poolSize + wager } : t
+      ));
+
+      addNotification(`Prediction placed! Potential win: ${newPrediction.potentialWin} PTS`);
       return true;
     } catch (e) {
       console.error("Prediction failed:", e);
-      return false;
+
+      // Fallback to local only
+      setUser({ ...user, points: user.points - wager });
+
+      const newPrediction: Prediction = {
+        id: Math.random().toString(36),
+        userId: user.id,
+        topicId,
+        predictionValue: value,
+        wager,
+        potentialWin: Math.floor(wager * 1.5),
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      setPredictions(prev => [newPrediction, ...prev]);
+
+      addNotification(`Prediction placed! Potential win: ${newPrediction.potentialWin} PTS`);
+      return true;
     }
   };
 
+  const redeemReward = (rewardId: string) => {
+    if (!user) return;
+    const reward = rewards.find(r => r.id === rewardId);
+    if (!reward) return;
+
+    if (user.points < reward.cost) {
+      addNotification('Insufficient points for this reward.', 'error');
+      return;
+    }
+
+    setUser({ ...user, points: user.points - reward.cost });
+
+    const newTx: Transaction = {
+      id: Math.random().toString(36),
+      userId: user.id,
+      type: 'redeem',
+      amount: -reward.cost,
+      description: `Redeemed: ${reward.name}`,
+      createdAt: new Date().toISOString()
+    };
+    setTransactions(prev => [newTx, ...prev]);
+
+    const newRedemption: Redemption = {
+      id: Math.random().toString(36),
+      userId: user.id,
+      rewardId: reward.id,
+      code: null,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    setRedemptions(prev => [newRedemption, ...prev]);
+
+    addNotification(`Redeemed ${reward.name}! Check your email.`);
+  };
+
   return (
-    <AppContext.Provider value={{ user, topics, predictions, addTopic, makePrediction, refreshData, isLoading }}>
+    <AppContext.Provider value={{
+      user,
+      topics,
+      predictions,
+      transactions,
+      rewards,
+      redemptions,
+      notifications,
+      addTopic,
+      makePrediction,
+      redeemReward,
+      login,
+      logout,
+      dismissNotification,
+      refreshData,
+      isLoading
+    }}>
       {children}
     </AppContext.Provider>
   );
