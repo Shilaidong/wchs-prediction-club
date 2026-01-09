@@ -67,7 +67,7 @@ CREATE TABLE public.rewards (
 -- Redemptions
 CREATE TABLE public.redemptions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.user_profiles(id) NO DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE NOT NULL,
   reward_id UUID REFERENCES public.rewards(id),
   status TEXT DEFAULT 'pending', -- 'pending', 'fulfilled'
   code TEXT, -- Gift card code
