@@ -60,6 +60,7 @@ interface AppContextType {
   redemptions: Redemption[];
   notifications: Array<{ id: string, message: string, type: 'success' | 'error' }>;
   addTopic: (topic: Topic) => void;
+  createTopic: (data: { title: string; description: string; category: Category; endTime: string }) => Promise<void>;
   makePrediction: (topicId: string, value: string, wager: number) => Promise<boolean>;
   redeemReward: (rewardId: string) => void;
   login: (email: string) => void;
@@ -193,6 +194,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('Topic created successfully!');
   };
 
+  const createTopic = async (data: { title: string; description: string; category: Category; endTime: string }) => {
+    if (!user) {
+      addNotification('Please login to create a topic', 'error');
+      return;
+    }
+
+    try {
+      const { data: newTopic, error } = await supabase
+        .from('topics')
+        .insert({
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          end_time: data.endTime,
+          created_by: user.id,
+          status: 'active',
+          pool_size: 0,
+          participant_count: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      if (newTopic) {
+        const formattedTopic: Topic = {
+          id: newTopic.id,
+          title: newTopic.title,
+          description: newTopic.description,
+          category: newTopic.category as Category,
+          participants: 0,
+          endTime: newTopic.end_time,
+          poolSize: 0,
+          image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&q=80',
+          status: 'active',
+          odds: 1.5,
+          createdBy: user.id
+        };
+        setTopics(prev => [formattedTopic, ...prev]);
+      }
+
+      addNotification('Topic created successfully!');
+    } catch (error) {
+      console.error('Failed to create topic:', error);
+      addNotification('Failed to create topic. Please try again.', 'error');
+    }
+  };
+
   const makePrediction = async (topicId: string, value: string, wager: number): Promise<boolean> => {
     if (!user) return false;
     if (user.points < wager) {
@@ -312,6 +362,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       redemptions,
       notifications,
       addTopic,
+      createTopic,
       makePrediction,
       redeemReward,
       login,
