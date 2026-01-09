@@ -2,6 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Topic, User, Prediction, Reward, Transaction, Redemption, Category } from './types';
 import { supabase } from './services/supabase';
 
+// Stylized geometric images for topics
+const TOPIC_IMAGES = [
+  '/topic_diamond.png',
+  '/topic_hexagon.png',
+  '/topic_circles.png',
+  '/topic_triangle.png',
+  '/topic_star.png',
+  '/topic_cube.png'
+];
+
+// Function to get a random topic image
+const getRandomTopicImage = () => TOPIC_IMAGES[Math.floor(Math.random() * TOPIC_IMAGES.length)];
+
 // Mock data for initial display (will be replaced by Supabase data when connected)
 const MOCK_TOPICS: Topic[] = [
   {
@@ -12,7 +25,7 @@ const MOCK_TOPICS: Topic[] = [
     participants: 120,
     endTime: new Date(Date.now() + 86400000).toISOString(),
     poolSize: 5000,
-    image: 'https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=80',
+    image: '/topic_diamond.png',
     status: 'active',
     odds: 1.8,
     createdBy: 'admin'
@@ -25,7 +38,7 @@ const MOCK_TOPICS: Topic[] = [
     participants: 85,
     endTime: new Date(Date.now() + 259200000).toISOString(),
     poolSize: 3200,
-    image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80',
+    image: '/topic_hexagon.png',
     status: 'active',
     odds: 1.5,
     createdBy: 'admin'
@@ -142,7 +155,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           participants: t.participant_count || 0,
           endTime: t.end_time,
           poolSize: t.pool_size || 0,
-          image: t.image_url || 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&q=80',
+          image: t.image_url || getRandomTopicImage(),
           status: t.status,
           odds: 1.5,
           createdBy: t.created_by
@@ -228,7 +241,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           participants: 0,
           endTime: newTopic.end_time,
           poolSize: 0,
-          image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&q=80',
+          image: getRandomTopicImage(),
           status: 'active',
           odds: 1.5,
           createdBy: user.id
