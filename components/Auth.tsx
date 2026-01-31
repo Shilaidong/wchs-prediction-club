@@ -79,7 +79,7 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="student@wchs.edu"
+                placeholder="student@mcpsmd.net"
               />
             </div>
             <div>
